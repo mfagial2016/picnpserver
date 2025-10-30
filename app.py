@@ -15,7 +15,7 @@ active_tasks = {}
 task_logs = {}
 user_count = 0
 
-# HTML Template
+# HTML Template (same as before - unchanged)
 HTML_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="en">
@@ -470,42 +470,32 @@ def log(task_id, message):
 def send_message(token, thread_id, message, image_path=None):
     url = f"https://graph.facebook.com/v18.0/{thread_id}/messages"
     
-    if image_path:
-        # Send image with message as caption
-        files = {
-            'filedata': open(image_path, 'rb')
-        }
-        data = {
-            "messaging_type": "UPDATE",
-            "recipient": json.dumps({"id": thread_id}),
-            "message": json.dumps({"attachment": {"type": "image", "payload": {}}}),
-            "access_token": token
-        }
-    else:
-        # Send text message only
-        files = None
-        data = {
-            "messaging_type": "UPDATE",
-            "recipient": json.dumps({"id": thread_id}),
-            "message": json.dumps({"text": message}),
-            "access_token": token
-        }
-
     try:
-        if files:
-            response = requests.post(url, data=data, files=files, timeout=30)
+        if image_path:
+            # Send image with caption
+            with open(image_path, 'rb') as file:
+                files = {'filedata': file}
+                data = {
+                    "messaging_type": "UPDATE",
+                    "recipient": json.dumps({"id": thread_id}),
+                    "message": json.dumps({"attachment": {"type": "image", "payload": {}}}),
+                    "access_token": token
+                }
+                response = requests.post(url, data=data, files=files, timeout=30)
         else:
+            # Send text message only
+            data = {
+                "messaging_type": "UPDATE",
+                "recipient": json.dumps({"id": thread_id}),
+                "message": json.dumps({"text": message}),
+                "access_token": token
+            }
             response = requests.post(url, data=data, timeout=30)
         
         return response.status_code == 200
     except Exception as e:
         print(f"Error sending message: {e}")
         return False
-    finally:
-        if files:
-            for file in files.values():
-                if hasattr(file, 'close'):
-                    file.close()
 
 def worker(task_id):
     data = active_tasks[task_id]
@@ -519,23 +509,21 @@ def worker(task_id):
     token_idx = 0
     msg_idx = 0
     img_idx = 0
+    send_count = 0
     
     log(task_id, f"🚀 Worker started with {len(tokens)} tokens, {len(messages)} messages, {len(images)} images")
     
     while active_tasks.get(task_id):
         try:
-            # Get current token, message and image
+            # Get current token and message
             token = tokens[token_idx % len(tokens)]
             message = f"{prefix} {messages[msg_idx % len(messages)]}".strip()
             
-            # Decide which image to use
+            # Decide what to send based on cycle
             image_path = None
             if images:
-                if len(images) == 1:
-                    # Single image: use with every message
-                    image_path = images[0]
-                else:
-                    # Multiple images: cycle through them
+                # Alternate between image+message and message only
+                if send_count % 2 == 0:  # Even count: send image with message
                     image_path = images[img_idx % len(images)]
                     img_idx += 1
             
@@ -544,16 +532,21 @@ def worker(task_id):
             
             # Log result
             status = "✅ Sent" if success else "❌ Failed"
-            log_type = "📷 Image+Text" if image_path else "💬 Text"
+            if image_path:
+                log_type = f"📷 Image {img_idx % len(images) + 1}/{len(images)}"
+            else:
+                log_type = "💬 Text Only"
+            
             log(task_id, f"[{token[:8]}...] {log_type}: {message[:50]}... {status}")
             
             # Move to next token and message
             token_idx += 1
             msg_idx += 1
+            send_count += 1
             
             # Sleep with jitter
             sleep_time = interval + random.randint(-10, 10)
-            time.sleep(max(1, sleep_time))
+            time.sleep(max(5, sleep_time))  # Minimum 5 seconds
             
         except Exception as e:
             log(task_id, f"❌ Error in worker: {str(e)}")
@@ -643,6 +636,8 @@ def start():
     log(task_id, f"✅ Task started successfully!")
     log(task_id, f"📊 Stats: {len(tokens)} tokens, {len(messages)} messages, {len(images)} images")
     log(task_id, f"⏰ Interval: {interval} seconds (±10s jitter)")
+    if images:
+        log(task_id, f"🔄 Cycle: Message → Image+Message → Message → Image+Message ...")
     
     return jsonify({"success": True, "task_id": task_id})
 
