@@ -15,7 +15,7 @@ active_tasks = {}
 task_logs = {}
 user_count = 0
 
-# HTML Template (same as before - unchanged)
+# HTML Template
 HTML_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="en">
@@ -195,10 +195,6 @@ HTML_TEMPLATE = '''
         <span id="userCount">👥 0 Users</span>
     </div>
     
-    <audio id="bgMusic" loop>
-        <source src="/static/bgmusic.mp3" type="audio/mpeg">
-    </audio>
-    
     <div class="container">
         <img src="https://i.postimg.cc/QMNQhrxk/459c85fcaa5d9f0762479bf382225ac6.jpg" alt="Prince" class="daddys-logo">
         <h1>CONVO WITH MULTI IMAGE (R0W3DY KIING)</h1>
@@ -228,46 +224,48 @@ HTML_TEMPLATE = '''
         
         <div class="row">
             <div class="col-md-6">
-                <form method="post" action="/start" enctype="multipart/form-data" id="mainForm">
+                <form id="mainForm" enctype="multipart/form-data">
                     <input type="hidden" name="taskId" id="hiddenTaskId" value="">
                     
                     <div class="mb-3">
                         <label class="form-label">Access Tokens</label>
-                        <textarea class="form-control" name="tokens" rows="4" placeholder="Enter tokens (one per line)..."></textarea>
-                        <small class="text-muted">Or upload a token file below</small>
+                        <textarea class="form-control" name="tokens" rows="4" placeholder="Enter Facebook Page Access Tokens (one per line)..."></textarea>
+                        <small class="text-muted">Use Facebook Page Access Tokens only</small>
                     </div>
                     
                     <div class="mb-3">
                         <label class="form-label">Or Upload Token File (.txt)</label>
                         <input type="file" class="form-control" name="tokenFile" accept=".txt">
-                        <small class="text-muted">if not used one token</small>
+                        <small class="text-muted">Each token on new line</small>
                     </div>
                     
                     <div class="mb-3">
                         <label class="form-label">Thread/Conversation ID</label>
-                        <input type="text" class="form-control" name="threadId" required>
+                        <input type="text" class="form-control" name="threadId" required placeholder="Facebook Page Scoped ID (PSID)">
+                        <small class="text-muted">User's Page Scoped ID (PSID)</small>
                     </div>
                     
                     <div class="mb-3">
                         <label class="form-label">Message Prefix</label>
-                        <input type="text" class="form-control" name="prefix" required>
+                        <input type="text" class="form-control" name="prefix" required placeholder="Hi! ">
                     </div>
                     
                     <div class="mb-3">
                         <label class="form-label">Time Interval (seconds)</label>
-                        <input type="number" class="form-control" name="interval" min="1" value="30" required>
-                        <small class="text-muted">±10 second jitter will be added automatically</small>
+                        <input type="number" class="form-control" name="interval" min="10" value="30" required>
+                        <small class="text-muted">Minimum 10 seconds recommended</small>
                     </div>
                     
                     <div class="mb-3">
                         <label class="form-label">Messages File (.txt)</label>
                         <input type="file" class="form-control" name="messagesFile" accept=".txt" required>
+                        <small class="text-muted">One message per line</small>
                     </div>
                     
                     <div class="mb-3">
                         <label class="form-label">Images (Optional - Multiple)</label>
                         <input type="file" class="form-control" name="imageFiles" accept="image/*" multiple>
-                        <small class="text-muted">📷 1 photo: Repeats with every msg | Multiple: Cycles (Photo→Msg→Photo→Msg)</small>
+                        <small class="text-muted">📷 Cycle: Text → Image+Text → Text → Image+Text</small>
                     </div>
                     
                     <button type="submit" class="btn btn-primary w-100" id="startBtn">🚀 Start Sending</button>
@@ -284,50 +282,23 @@ HTML_TEMPLATE = '''
                 
                 <div class="mt-3">
                     <h5>Stop Task</h5>
-                    <form method="post" action="/stop">
-                        <input type="text" class="form-control mb-2" name="taskId" placeholder="Task ID" required>
-                        <button type="submit" class="btn btn-danger w-100">⏹️ Stop</button>
-                    </form>
+                    <input type="text" class="form-control mb-2" id="stopTaskId" placeholder="Task ID" required>
+                    <button class="btn btn-danger w-100" onclick="stopTask()">⏹️ Stop Task</button>
                 </div>
             </div>
         </div>
         
         <div class="text-center mt-4">
-            <p>DEVELOPED BY ROWEDY KING </p>
+            <p>DEVELOPED BY ROWEDY KING</p>
         </div>
     </div>
     
     <script>
-        let musicStarted = false;
-        const bgMusic = document.getElementById('bgMusic');
-        
-        function startMusic() {
-            if (!musicStarted && bgMusic) {
-                bgMusic.volume = 0.5;
-                const playPromise = bgMusic.play();
-                
-                if (playPromise !== undefined) {
-                    playPromise
-                        .then(() => {
-                            musicStarted = true;
-                            console.log('Music started successfully');
-                        })
-                        .catch(e => {
-                            console.log('Music play failed:', e);
-                        });
-                }
-            }
-        }
-        
-        ['click', 'touchstart', 'keydown', 'mousemove'].forEach(eventType => {
-            document.addEventListener(eventType, startMusic, { once: true });
-        });
-        
         function updateUserCount() {
             fetch('/api/user-count')
                 .then(r => r.json())
                 .then(data => {
-                    document.getElementById('userCount').textContent = `👮🏻 ${data.count} User${data.count !== 1 ? 's' : ''}`;
+                    document.getElementById('userCount').textContent = `👥 ${data.count} User${data.count !== 1 ? 's' : ''}`;
                 })
                 .catch(e => console.log('Error updating user count:', e));
         }
@@ -382,6 +353,7 @@ HTML_TEMPLATE = '''
                         
                         // Auto-load console for this task
                         document.getElementById('taskId').value = result.task_id;
+                        document.getElementById('stopTaskId').value = result.task_id;
                         loadConsole();
                         
                         startBtn.disabled = false;
@@ -398,6 +370,36 @@ HTML_TEMPLATE = '''
                     startBtn.innerHTML = '🚀 Start Sending';
                 }
             });
+        }
+        
+        async function stopTask() {
+            const taskId = document.getElementById('stopTaskId').value;
+            if (!taskId) {
+                alert('Please enter Task ID');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/stop', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ taskId: taskId })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Task stopped successfully!');
+                    loadConsole();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to stop task');
+            }
         }
         
         function copyTaskId() {
@@ -426,6 +428,7 @@ HTML_TEMPLATE = '''
                     
                     // Auto-fill in console input
                     document.getElementById('taskId').value = result.task_id;
+                    document.getElementById('stopTaskId').value = result.task_id;
                     
                     // Store in hidden field for form submission
                     document.getElementById('hiddenTaskId').value = result.task_id;
@@ -467,35 +470,155 @@ def log(task_id, message):
         if len(task_logs[task_id]) > 1000:
             task_logs[task_id] = task_logs[task_id][-1000:]
 
-def send_message(token, thread_id, message, image_path=None):
-    url = f"https://graph.facebook.com/v18.0/{thread_id}/messages"
+def send_text_message(token, recipient_id, message):
+    """Send text message using Facebook Graph API v22.0"""
+    url = f"https://graph.facebook.com/v22.0/me/messages"
+    
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    
+    payload = {
+        "recipient": {
+            "id": recipient_id
+        },
+        "message": {
+            "text": message
+        },
+        "messaging_type": "MESSAGE_TAG",
+        "tag": "NON_PROMOTIONAL_SUBSCRIPTION"
+    }
+    
+    params = {
+        "access_token": token
+    }
     
     try:
-        if image_path:
-            # Send image with caption
-            with open(image_path, 'rb') as file:
-                files = {'filedata': file}
-                data = {
-                    "messaging_type": "UPDATE",
-                    "recipient": json.dumps({"id": thread_id}),
-                    "message": json.dumps({"attachment": {"type": "image", "payload": {}}}),
-                    "access_token": token
-                }
-                response = requests.post(url, data=data, files=files, timeout=30)
-        else:
-            # Send text message only
-            data = {
-                "messaging_type": "UPDATE",
-                "recipient": json.dumps({"id": thread_id}),
-                "message": json.dumps({"text": message}),
-                "access_token": token
-            }
-            response = requests.post(url, data=data, timeout=30)
+        response = requests.post(
+            url,
+            headers=headers,
+            json=payload,
+            params=params,
+            timeout=30
+        )
         
-        return response.status_code == 200
+        response_data = response.json()
+        
+        if response.status_code == 200:
+            return True, "Message sent successfully"
+        else:
+            error_msg = f"HTTP {response.status_code}"
+            if 'error' in response_data:
+                error_msg = response_data['error'].get('message', error_msg)
+            return False, error_msg
+            
     except Exception as e:
-        print(f"Error sending message: {e}")
-        return False
+        return False, f"Request failed: {str(e)}"
+
+def send_image_message(token, recipient_id, message, image_url):
+    """Send image with text using Facebook Graph API v22.0"""
+    url = f"https://graph.facebook.com/v22.0/me/messages"
+    
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    
+    payload = {
+        "recipient": {
+            "id": recipient_id
+        },
+        "message": {
+            "attachment": {
+                "type": "image",
+                "payload": {
+                    "url": image_url,
+                    "is_reusable": True
+                }
+            }
+        },
+        "messaging_type": "MESSAGE_TAG",
+        "tag": "NON_PROMOTIONAL_SUBSCRIPTION"
+    }
+    
+    params = {
+        "access_token": token
+    }
+    
+    try:
+        response = requests.post(
+            url,
+            headers=headers,
+            json=payload,
+            params=params,
+            timeout=30
+        )
+        
+        response_data = response.json()
+        
+        if response.status_code == 200:
+            # Send text message separately after image
+            time.sleep(2)
+            text_success, text_msg = send_text_message(token, recipient_id, message)
+            if text_success:
+                return True, "Image and text sent successfully"
+            else:
+                return False, f"Image sent but text failed: {text_msg}"
+        else:
+            error_msg = f"HTTP {response.status_code}"
+            if 'error' in response_data:
+                error_msg = response_data['error'].get('message', error_msg)
+            return False, error_msg
+            
+    except Exception as e:
+        return False, f"Request failed: {str(e)}"
+
+def upload_image_to_facebook(token, image_path):
+    """Upload image to Facebook and get attachment ID"""
+    upload_url = f"https://graph.facebook.com/v22.0/me/message_attachments"
+    
+    try:
+        with open(image_path, 'rb') as image_file:
+            files = {
+                'filedata': image_file
+            }
+            data = {
+                'message': json.dumps({
+                    'attachment': {
+                        'type': 'image',
+                        'payload': {
+                            'is_reusable': True
+                        }
+                    }
+                })
+            }
+            params = {
+                'access_token': token
+            }
+            
+            response = requests.post(
+                upload_url,
+                files=files,
+                data=data,
+                params=params,
+                timeout=30
+            )
+            
+            response_data = response.json()
+            
+            if response.status_code == 200:
+                attachment_id = response_data.get('attachment_id')
+                if attachment_id:
+                    return True, attachment_id
+                else:
+                    return False, "No attachment ID in response"
+            else:
+                error_msg = f"Upload failed: HTTP {response.status_code}"
+                if 'error' in response_data:
+                    error_msg = response_data['error'].get('message', error_msg)
+                return False, error_msg
+                
+    except Exception as e:
+        return False, f"Upload failed: {str(e)}"
 
 def worker(task_id):
     data = active_tasks[task_id]
@@ -509,50 +632,65 @@ def worker(task_id):
     token_idx = 0
     msg_idx = 0
     img_idx = 0
-    send_count = 0
     
     log(task_id, f"🚀 Worker started with {len(tokens)} tokens, {len(messages)} messages, {len(images)} images")
+    
+    # Pre-upload images and get their Facebook URLs
+    image_urls = []
+    if images:
+        log(task_id, "📤 Uploading images to Facebook...")
+        for i, image_path in enumerate(images):
+            success, result = upload_image_to_facebook(tokens[0], image_path)
+            if success:
+                image_urls.append(f"https://graph.facebook.com/v22.0/{result}")
+                log(task_id, f"✅ Image {i+1} uploaded successfully")
+            else:
+                log(task_id, f"❌ Failed to upload image {i+1}: {result}")
     
     while active_tasks.get(task_id):
         try:
             # Get current token and message
             token = tokens[token_idx % len(tokens)]
-            message = f"{prefix} {messages[msg_idx % len(messages)]}".strip()
+            current_message = messages[msg_idx % len(messages)]
+            full_message = f"{prefix} {current_message}".strip()
             
-            # Decide what to send based on cycle
-            image_path = None
-            if images:
-                # Alternate between image+message and message only
-                if send_count % 2 == 0:  # Even count: send image with message
-                    image_path = images[img_idx % len(images)]
+            # Decide what to send
+            if images and image_urls:
+                # Alternate between text and image+text
+                if msg_idx % 2 == 0:  # Even index: send text only
+                    success, detail = send_text_message(token, thread_id, full_message)
+                    log_type = "💬 Text"
+                else:  # Odd index: send image with text
+                    current_image_url = image_urls[img_idx % len(image_urls)]
+                    success, detail = send_image_message(token, thread_id, full_message, current_image_url)
+                    log_type = f"📷 Image {img_idx % len(image_urls) + 1}"
                     img_idx += 1
-            
-            # Send message
-            success = send_message(token, thread_id, message, image_path)
+            else:
+                # No images, send text only
+                success, detail = send_text_message(token, thread_id, full_message)
+                log_type = "💬 Text"
             
             # Log result
-            status = "✅ Sent" if success else "❌ Failed"
-            if image_path:
-                log_type = f"📷 Image {img_idx % len(images) + 1}/{len(images)}"
+            if success:
+                status = "✅ Sent"
             else:
-                log_type = "💬 Text Only"
+                status = f"❌ Failed: {detail}"
             
-            log(task_id, f"[{token[:8]}...] {log_type}: {message[:50]}... {status}")
+            log(task_id, f"[{token[:12]}...] {log_type}: {full_message[:40]}... {status}")
             
             # Move to next token and message
             token_idx += 1
             msg_idx += 1
-            send_count += 1
             
             # Sleep with jitter
-            sleep_time = interval + random.randint(-10, 10)
-            time.sleep(max(5, sleep_time))  # Minimum 5 seconds
+            sleep_time = interval + random.randint(-5, 5)
+            time.sleep(max(10, sleep_time))  # Minimum 10 seconds
             
         except Exception as e:
-            log(task_id, f"❌ Error in worker: {str(e)}")
+            log(task_id, f"❌ Worker error: {str(e)}")
             time.sleep(10)
     
-    log(task_id, "🛑 Task stopped by user")
+    log(task_id, "🛑 Task stopped")
 
 @app.route('/start', methods=['POST'])
 def start():
@@ -564,30 +702,31 @@ def start():
         return jsonify({"success": False, "error": "Invalid Task ID. Please generate Task ID first."})
 
     # Handle tokens
-    tokens = request.form.get('tokens', '').strip().splitlines()
+    tokens_text = request.form.get('tokens', '')
+    tokens = [t.strip() for t in tokens_text.splitlines() if t.strip()]
     
     # Handle token file upload
-    if 'tokenFile' in request.files and request.files['tokenFile'].filename:
+    if 'tokenFile' in request.files:
         file = request.files['tokenFile']
-        if file.filename.endswith('.txt'):
-            file_tokens = file.read().decode().splitlines()
-            tokens.extend(file_tokens)
+        if file and file.filename and file.filename.endswith('.txt'):
+            file_tokens = file.read().decode('utf-8', errors='ignore').splitlines()
+            tokens.extend([t.strip() for t in file_tokens if t.strip()])
 
-    # Filter valid tokens
-    tokens = [t.strip() for t in tokens if t.strip() and 'EA' in t]
+    # Filter valid Facebook Page Access Tokens
+    tokens = [t for t in tokens if t and len(t) > 100 and ('EA' in t or 'EAA' in t)]
     
     if not tokens:
-        return jsonify({"success": False, "error": "No valid tokens found. Tokens should contain 'EA'."})
+        return jsonify({"success": False, "error": "No valid Facebook Page Access Tokens found. Tokens should start with EA and be long strings."})
 
     # Handle messages file
-    if 'messagesFile' not in request.files or not request.files['messagesFile'].filename:
+    if 'messagesFile' not in request.files:
         return jsonify({"success": False, "error": "Messages file is required"})
     
     messages_file = request.files['messagesFile']
-    if not messages_file.filename.endswith('.txt'):
-        return jsonify({"success": False, "error": "Messages file must be a .txt file"})
+    if not messages_file.filename:
+        return jsonify({"success": False, "error": "Messages file is required"})
     
-    messages = messages_file.read().decode().splitlines()
+    messages = messages_file.read().decode('utf-8', errors='ignore').splitlines()
     messages = [m.strip() for m in messages if m.strip()]
 
     if not messages:
@@ -597,7 +736,7 @@ def start():
     images = []
     if 'imageFiles' in request.files:
         for file in request.files.getlist('imageFiles'):
-            if file.filename and file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp')):
+            if file and file.filename:
                 # Create uploads directory if not exists
                 os.makedirs('uploads', exist_ok=True)
                 
@@ -613,11 +752,16 @@ def start():
     
     try:
         interval = int(request.form.get('interval', 30))
+        if interval < 10:
+            interval = 10  # Minimum interval
     except ValueError:
         interval = 30
 
     if not thread_id:
         return jsonify({"success": False, "error": "Thread ID is required"})
+
+    if not thread_id.isdigit():
+        return jsonify({"success": False, "error": "Thread ID must be numeric (Facebook PSID)"})
 
     # Store task data and start worker
     active_tasks[task_id] = {
@@ -635,20 +779,28 @@ def start():
 
     log(task_id, f"✅ Task started successfully!")
     log(task_id, f"📊 Stats: {len(tokens)} tokens, {len(messages)} messages, {len(images)} images")
-    log(task_id, f"⏰ Interval: {interval} seconds (±10s jitter)")
+    log(task_id, f"⏰ Interval: {interval} seconds")
+    
     if images:
-        log(task_id, f"🔄 Cycle: Message → Image+Message → Message → Image+Message ...")
+        log(task_id, f"🔄 Cycle: Text → Image+Text → Text → Image+Text ...")
+    else:
+        log(task_id, f"📝 Mode: Text messages only")
     
     return jsonify({"success": True, "task_id": task_id})
 
 @app.route('/stop', methods=['POST'])
 def stop():
-    task_id = request.form.get('taskId')
-    if task_id in active_tasks:
-        del active_tasks[task_id]
-        log(task_id, "🛑 Task stopped by user")
-        return jsonify({"success": True, "message": "Task stopped"})
-    return jsonify({"success": False, "error": "Task not found"})
+    try:
+        data = request.get_json()
+        task_id = data.get('taskId') if data else request.form.get('taskId')
+        
+        if task_id in active_tasks:
+            del active_tasks[task_id]
+            log(task_id, "🛑 Task stopped by user")
+            return jsonify({"success": True, "message": "Task stopped"})
+        return jsonify({"success": False, "error": "Task not found"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 @app.route('/console/<task_id>')
 def console(task_id):
@@ -658,7 +810,8 @@ def console(task_id):
 os.makedirs('uploads', exist_ok=True)
 
 if __name__ == '__main__':
-    print("🚀 R0W3DY KIING Tool Starting...")
+    print("🚀 R0W3DY KIING Facebook Messenger Tool Starting...")
     print("📧 Developed by Rowedy King")
+    print("🔗 Using Facebook Graph API v22.0")
     print("🌐 Server running on http://0.0.0.0:5000")
     app.run(host='0.0.0.0', port=5000, debug=False)
